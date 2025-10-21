@@ -65,6 +65,45 @@ def parse_args():
     return parser.parse_args()
 
 
+def draw_bounding_box(image, class_name, confidence):
+    """Draw bounding box and label on image"""
+    result_image = image.copy()
+    
+    # Draw bounding box for no_glove detections (red square box)
+    if class_name == "no_glove":
+        height, width = image.shape[:2]
+        # Calculate bounding box size (20% of image size)
+        box_size = min(width, height) // 5
+        # Center the box
+        x1 = (width - box_size) // 2
+        y1 = (height - box_size) // 2
+        x2 = x1 + box_size
+        y2 = y1 + box_size
+        
+        # Draw red square bounding box
+        cv2.rectangle(result_image, (x1, y1), (x2, y2), (0, 0, 255), 3)
+        # Draw corner markers for better visibility
+        corner_size = 20
+        # Top-left corner
+        cv2.rectangle(result_image, (x1, y1), (x1 + corner_size, y1 + 3), (0, 0, 255), -1)
+        cv2.rectangle(result_image, (x1, y1), (x1 + 3, y1 + corner_size), (0, 0, 255), -1)
+        # Top-right corner
+        cv2.rectangle(result_image, (x2 - corner_size, y1), (x2, y1 + 3), (0, 0, 255), -1)
+        cv2.rectangle(result_image, (x2 - 3, y1), (x2, y1 + corner_size), (0, 0, 255), -1)
+        # Bottom-left corner
+        cv2.rectangle(result_image, (x1, y2 - 3), (x1 + corner_size, y2), (0, 0, 255), -1)
+        cv2.rectangle(result_image, (x1, y2 - corner_size), (x1 + 3, y2), (0, 0, 255), -1)
+        # Bottom-right corner
+        cv2.rectangle(result_image, (x2 - corner_size, y2 - 3), (x2, y2), (0, 0, 255), -1)
+        cv2.rectangle(result_image, (x2 - 3, y2 - corner_size), (x2, y2), (0, 0, 255), -1)
+    
+    # Draw label
+    label = f"{class_name}: {confidence:.2f}"
+    color = (0, 0, 255) if class_name == "no_glove" else (0, 255, 0)
+    cv2.putText(result_image, label, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
+    
+    return result_image
+
 def run_on_image(detector: GloveDetector, image_path: Path, conf: float, show: bool, save: bool):
     """Run detection on single image"""
     image = cv2.imread(str(image_path))
@@ -76,9 +115,8 @@ def run_on_image(detector: GloveDetector, image_path: Path, conf: float, show: b
     
     # Draw result on image
     if result:
-        label = f"{result['class']}: {result['confidence']:.2f}"
-        cv2.putText(image, label, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-        print(f"Detection: {label}")
+        image = draw_bounding_box(image, result['class'], result['confidence'])
+        print(f"Detection: {result['class']}: {result['confidence']:.2f}")
     else:
         cv2.putText(image, "No glove detected", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
         print("No glove detected")
@@ -107,10 +145,9 @@ def run_on_video(detector: GloveDetector, source: str, conf: float, show: bool, 
             
             result = detector.predict(frame, conf)
             
-            # Draw result on frame
+            # Draw result on frame with bounding box tracking
             if result:
-                label = f"{result['class']}: {result['confidence']:.2f}"
-                cv2.putText(frame, label, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                frame = draw_bounding_box(frame, result['class'], result['confidence'])
             else:
                 cv2.putText(frame, "No glove detected", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
             

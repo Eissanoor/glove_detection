@@ -52,12 +52,40 @@ def preprocess_image(image, img_size):
     return processed_img
 
 def draw_label_on_image(image, class_name, confidence, class_id):
-    """Draw label on image with enhanced styling"""
+    """Draw label on image with enhanced styling and bounding box tracking"""
     # Create a copy to avoid modifying original
     result_image = image.copy()
     
     # Define colors (BGR format for OpenCV)
     colors = [(0, 0, 255), (0, 255, 0)]  # Red for no glove, Green for glove
+    
+    # Draw bounding box for no_glove detections (red square box)
+    if class_name == "No Glove":
+        height, width = image.shape[:2]
+        # Calculate bounding box size (20% of image size)
+        box_size = min(width, height) // 5
+        # Center the box
+        x1 = (width - box_size) // 2
+        y1 = (height - box_size) // 2
+        x2 = x1 + box_size
+        y2 = y1 + box_size
+        
+        # Draw red square bounding box
+        cv2.rectangle(result_image, (x1, y1), (x2, y2), (0, 0, 255), 3)
+        # Draw corner markers for better visibility
+        corner_size = 20
+        # Top-left corner
+        cv2.rectangle(result_image, (x1, y1), (x1 + corner_size, y1 + 3), (0, 0, 255), -1)
+        cv2.rectangle(result_image, (x1, y1), (x1 + 3, y1 + corner_size), (0, 0, 255), -1)
+        # Top-right corner
+        cv2.rectangle(result_image, (x2 - corner_size, y1), (x2, y1 + 3), (0, 0, 255), -1)
+        cv2.rectangle(result_image, (x2 - 3, y1), (x2, y1 + corner_size), (0, 0, 255), -1)
+        # Bottom-left corner
+        cv2.rectangle(result_image, (x1, y2 - 3), (x1 + corner_size, y2), (0, 0, 255), -1)
+        cv2.rectangle(result_image, (x1, y2 - corner_size), (x1 + 3, y2), (0, 0, 255), -1)
+        # Bottom-right corner
+        cv2.rectangle(result_image, (x2 - corner_size, y2 - 3), (x2, y2), (0, 0, 255), -1)
+        cv2.rectangle(result_image, (x2 - 3, y2 - corner_size), (x2, y2), (0, 0, 255), -1)
     
     # Draw background rectangle for better text visibility
     text = f"{class_name}: {confidence:.3f}"
@@ -278,13 +306,14 @@ st.markdown("""
 **Model Info:**
 - Input size: Configurable (224, 320, 416, 512, 640 pixels)
 - Classes: Glove vs No Glove
-- Output: Confidence scores with visual labels
+- Output: Confidence scores with visual labels and tracking boxes
 - Label colors: Green for Glove, Red for No Glove
 
 **Features:**
 - Real-time confidence display
 - Enhanced label visualization with background rectangles
-- Video processing with progress tracking
-- Download processed videos
-- Webcam support via command line
+- **Red square bounding box tracking for No Glove detections**
+- Video processing with progress tracking and tracking boxes
+- Download processed videos with tracking visualization
+- Webcam support via command line with live tracking
 """)
