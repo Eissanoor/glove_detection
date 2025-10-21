@@ -11,15 +11,13 @@ import streamlit as st
 from PIL import Image
 import cv2
 import numpy as np
-import mediapipe as mp
-
-from hand_tracker import ProfessionalHandTracker
+from hand_tracker_opencv import OpenCVHandTracker
 from config import CONF_THRESHOLD_DEFAULT
 
 st.set_page_config(page_title="Professional Glove Detector", page_icon="🧤", layout="centered")
 
 st.title("🧤 Professional Glove vs No-Glove Detector")
-st.caption("Advanced hand tracking with moving bounding boxes for real-time safety monitoring.")
+st.caption("Advanced hand tracking with moving bounding boxes using OpenCV (No MediaPipe required).")
 
 with st.sidebar:
     st.header("⚙️ Professional Settings")
@@ -28,10 +26,10 @@ with st.sidebar:
     model_mode = st.radio(
         "Detection Mode:",
         ["Professional Tracking", "Basic Classification"],
-        help="Professional mode uses MediaPipe for hand tracking + glove classification. Basic mode uses only glove classification."
+        help="Professional mode uses OpenCV for hand tracking + glove classification. Basic mode uses only glove classification."
     )
     
-    model_path = st.text_input("Model path", value="runs/detect/glove_model.h5")
+    model_path = st.text_input("Model path", value="./src/runs/detect/glove_model.h5")
     conf_thres = st.slider("Confidence Threshold", 0.0, 1.0, float(CONF_THRESHOLD_DEFAULT), 0.01)
     img_size = st.selectbox("Image Size", [224, 320, 416, 512, 640], index=4)
     
@@ -71,7 +69,7 @@ else:  # Webcam mode
 def load_professional_tracker(model_path, img_size):
     """Load professional hand tracker"""
     try:
-        return ProfessionalHandTracker(model_path, img_size)
+        return OpenCVHandTracker(model_path, img_size)
     except Exception as e:
         st.error(f"Could not load professional tracker: {e}")
         return None
@@ -308,12 +306,12 @@ elif detection_mode == "Webcam":
     if model_mode == "Professional Tracking":
         st.code("""
 # Run professional webcam detection:
-python src/hand_tracker.py --source 0 --weights runs/detect/glove_model.h5 --conf 0.5
+python ./src/hand_tracker_opencv.py --source 0 --weights ./src/runs/detect/glove_model.h5 --conf 0.5
         """)
     else:
         st.code("""
 # Run basic webcam detection:
-python src/infer_tf.py --source 0 --weights runs/detect/glove_model.h5 --conf 0.5 --show
+python ./src/infer_tf.py --source 0 --weights ./src/runs/detect/glove_model.h5 --conf 0.5 --show
         """)
 
 # Professional features documentation
@@ -323,10 +321,10 @@ st.markdown("""
 ## 🚀 **Professional Features**
 
 ### **🎯 Advanced Hand Tracking:**
-- **Real-time hand detection** using MediaPipe
+- **Real-time hand detection** using OpenCV (no MediaPipe required)
 - **Moving bounding boxes** that follow hand movement
 - **Smooth tracking** with configurable smoothing factor
-- **Multi-hand support** (track up to 5 hands simultaneously)
+- **Multi-hand support** (track multiple hands simultaneously)
 
 ### **📊 Professional Visualization:**
 - **Red square boxes** for no_glove detections
@@ -336,7 +334,7 @@ st.markdown("""
 - **Real-time statistics** for video processing
 
 ### **⚙️ Technical Specifications:**
-- **Hand Detection**: MediaPipe Hands (70% detection confidence)
+- **Hand Detection**: OpenCV-based (skin color + motion detection)
 - **Glove Classification**: Your trained TensorFlow model
 - **Tracking Smoothing**: Configurable (0.0-1.0)
 - **Input Resolution**: Configurable (224-640 pixels)
@@ -362,7 +360,7 @@ st.markdown("""
 
 ### **✅ Current Implementation (Testing Time Only):**
 - Uses existing trained model for glove classification
-- Adds MediaPipe hand tracking (no training required)
+- Adds OpenCV-based hand tracking (no training required)
 - Combines both in real-time for professional tracking
 
 ### **🔄 Optional Retraining (For Even Better Results):**
@@ -371,5 +369,5 @@ st.markdown("""
 - Not required for current professional tracking functionality
 
 ### **🎯 Recommendation:**
-Start with the current professional tracking implementation. It provides excellent results using your existing model combined with MediaPipe hand tracking. You can always retrain later for even better precision if needed.
+Start with the current professional tracking implementation. It provides excellent results using your existing model combined with OpenCV-based hand tracking. No MediaPipe dependency issues, and you can always retrain later for even better precision if needed.
 """)
