@@ -1,0 +1,9 @@
+/src/__pycache__/
+/src/runs/
+/glove_env/
+/glove_env/Lib/site-packages/torch/lib/
+/glove_env/Lib/site-packages/torch/lib/include/
+/glove_env/Lib/site-packages/torch/lib/include/torch/
+/glove_env/Lib/site-packages/torch/lib/include/torch/csrc/
+/glove_env/Lib/site-packages/torch/lib/include/torch/csrc/api/
+/glove_env/Lib/site-packages/torch/lib/include/torch/csrc/api/torch/
