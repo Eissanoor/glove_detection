@@ -19,7 +19,7 @@ st.caption("Upload an image/video or use webcam to detect hands with gloves or w
 
 with st.sidebar:
     st.header("Settings")
-    model_path = st.text_input("Model path", value="runs/detect/glove_model.h5")
+    model_path = st.text_input("Model path", value="./src/runs/detect/glove_model.h5")
     conf_thres = st.slider("Confidence", 0.0, 1.0, float(CONF_THRESHOLD_DEFAULT), 0.01)
     img_size = st.selectbox("Image size", [224, 320, 416, 512, 640], index=4)
     
@@ -282,7 +282,7 @@ elif detection_mode == "Webcam":
     st.info("Webcam functionality requires running the inference script separately.")
     st.code("""
 # Run this command in your terminal for webcam detection:
-python src/infer_tf.py --source 0 --weights runs/detect/glove_model.h5 --conf 0.5 --show
+python src/infer_tf.py --source 0 --weights ./src/runs/detect/glove_model.h5 --conf 0.5 --show
     """)
 
 st.markdown("""
