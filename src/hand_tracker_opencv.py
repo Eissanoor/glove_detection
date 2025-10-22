@@ -43,21 +43,34 @@ class OpenCVHandTracker:
         # Morphological operations kernel
         self.kernel = np.ones((5, 5), np.uint8)
         
-        # Skin color range (HSV)
-        self.lower_skin = np.array([0, 20, 70], dtype=np.uint8)
-        self.upper_skin = np.array([20, 255, 255], dtype=np.uint8)
+        # Improved skin color range (HSV) - more inclusive
+        self.lower_skin = np.array([0, 10, 60], dtype=np.uint8)
+        self.upper_skin = np.array([25, 255, 255], dtype=np.uint8)
+        
+        # Additional skin color range for different lighting
+        self.lower_skin2 = np.array([0, 20, 50], dtype=np.uint8)
+        self.upper_skin2 = np.array([30, 255, 255], dtype=np.uint8)
         
     def detect_skin_regions(self, image: np.ndarray) -> np.ndarray:
         """Detect skin regions using color-based segmentation"""
         # Convert to HSV
         hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
         
-        # Create mask for skin color
-        skin_mask = cv2.inRange(hsv, self.lower_skin, self.upper_skin)
+        # Create mask for skin color (primary range)
+        skin_mask1 = cv2.inRange(hsv, self.lower_skin, self.upper_skin)
         
-        # Apply morphological operations
+        # Create mask for skin color (secondary range)
+        skin_mask2 = cv2.inRange(hsv, self.lower_skin2, self.upper_skin2)
+        
+        # Combine both masks
+        skin_mask = cv2.bitwise_or(skin_mask1, skin_mask2)
+        
+        # Apply morphological operations to clean up the mask
         skin_mask = cv2.morphologyEx(skin_mask, cv2.MORPH_OPEN, self.kernel)
         skin_mask = cv2.morphologyEx(skin_mask, cv2.MORPH_CLOSE, self.kernel)
+        
+        # Additional dilation to connect nearby skin regions
+        skin_mask = cv2.dilate(skin_mask, self.kernel, iterations=2)
         
         return skin_mask
     
@@ -70,17 +83,24 @@ class OpenCVHandTracker:
         contours, _ = cv2.findContours(skin_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         
         hand_boxes = []
+        image_area = image.shape[0] * image.shape[1]
+        
         for contour in contours:
-            # Filter by area (hands should be reasonably sized)
+            # More flexible area filtering - based on image size
             area = cv2.contourArea(contour)
-            if 3000 < area < 50000:  # Adjust these values based on your use case
+            min_area = max(1000, image_area * 0.001)  # At least 0.1% of image
+            max_area = min(100000, image_area * 0.3)  # At most 30% of image
+            
+            if min_area < area < max_area:
                 # Get bounding box
                 x, y, w, h = cv2.boundingRect(contour)
                 
-                # Filter by aspect ratio (hands are roughly square-ish)
+                # More flexible aspect ratio (hands can be various shapes)
                 aspect_ratio = w / h
-                if 0.5 < aspect_ratio < 2.0:
-                    hand_boxes.append((x, y, w, h))
+                if 0.3 < aspect_ratio < 3.0:  # Much more flexible
+                    # Additional check: ensure reasonable size
+                    if w > 30 and h > 30:  # Minimum size
+                        hand_boxes.append((x, y, w, h))
         
         return hand_boxes
     
@@ -97,13 +117,19 @@ class OpenCVHandTracker:
         contours, _ = cv2.findContours(fg_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         
         moving_boxes = []
+        image_area = image.shape[0] * image.shape[1]
+        
         for contour in contours:
             area = cv2.contourArea(contour)
-            if 2000 < area < 30000:  # Filter by area
+            min_area = max(1000, image_area * 0.0005)  # At least 0.05% of image
+            max_area = min(50000, image_area * 0.2)   # At most 20% of image
+            
+            if min_area < area < max_area:
                 x, y, w, h = cv2.boundingRect(contour)
                 aspect_ratio = w / h
-                if 0.3 < aspect_ratio < 3.0:  # Filter by aspect ratio
-                    moving_boxes.append((x, y, w, h))
+                if 0.2 < aspect_ratio < 5.0:  # More flexible aspect ratio
+                    if w > 20 and h > 20:  # Minimum size
+                        moving_boxes.append((x, y, w, h))
         
         return moving_boxes
     
@@ -272,15 +298,55 @@ class OpenCVHandTracker:
         
         return result_image
     
+    def detect_hands_fallback(self, image: np.ndarray) -> List[Tuple[int, int, int, int]]:
+        """Fallback hand detection using edge detection and contour analysis"""
+        # Convert to grayscale
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        
+        # Apply Gaussian blur
+        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+        
+        # Edge detection
+        edges = cv2.Canny(blurred, 50, 150)
+        
+        # Find contours
+        contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        
+        hand_boxes = []
+        image_area = image.shape[0] * image.shape[1]
+        
+        for contour in contours:
+            area = cv2.contourArea(contour)
+            min_area = max(2000, image_area * 0.002)  # At least 0.2% of image
+            max_area = min(80000, image_area * 0.4)   # At most 40% of image
+            
+            if min_area < area < max_area:
+                x, y, w, h = cv2.boundingRect(contour)
+                aspect_ratio = w / h
+                
+                # Check for hand-like characteristics
+                if 0.4 < aspect_ratio < 2.5 and w > 40 and h > 40:
+                    # Additional check: convexity defects (fingers)
+                    hull = cv2.convexHull(contour)
+                    hull_area = cv2.contourArea(hull)
+                    if hull_area > 0:
+                        solidity = area / hull_area
+                        if 0.6 < solidity < 0.95:  # Hand-like solidity
+                            hand_boxes.append((x, y, w, h))
+        
+        return hand_boxes
+
     def process_frame(self, image: np.ndarray, conf_threshold: float = 0.5) -> Tuple[np.ndarray, List[Dict]]:
         """Process single frame for hand tracking and glove detection"""
         
         # Detect hands using multiple methods
         skin_boxes = self.detect_hand_contours(image)
         motion_boxes = self.detect_moving_objects(image)
+        fallback_boxes = self.detect_hands_fallback(image)
         
-        # Combine detections
+        # Combine all detections
         all_boxes = self.combine_detections(skin_boxes, motion_boxes)
+        all_boxes = self.combine_detections(all_boxes, fallback_boxes)
         
         hands_data = []
         
@@ -298,6 +364,21 @@ class OpenCVHandTracker:
                     'confidence': classification['confidence'],
                     'class_id': classification['class_id']
                 })
+        
+        # If no hands detected with high confidence, try with lower threshold
+        if not hands_data:
+            for bbox in all_boxes:
+                hand_roi = self.extract_hand_roi(image, bbox)
+                classification = self.classify_hand(hand_roi)
+                
+                # Use lower threshold for fallback
+                if classification['confidence'] > max(0.1, conf_threshold * 0.5):
+                    hands_data.append({
+                        'bbox': bbox,
+                        'class': classification['class'],
+                        'confidence': classification['confidence'],
+                        'class_id': classification['class_id']
+                    })
         
         # Smooth tracking
         hands_data = self.smooth_tracking(hands_data)

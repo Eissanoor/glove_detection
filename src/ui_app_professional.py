@@ -30,7 +30,8 @@ with st.sidebar:
     )
     
     model_path = st.text_input("Model path", value="./src/runs/detect/glove_model.h5")
-    conf_thres = st.slider("Confidence Threshold", 0.0, 1.0, float(CONF_THRESHOLD_DEFAULT), 0.01)
+    conf_thres = st.slider("Confidence Threshold", 0.0, 1.0, 0.1, 0.01, 
+                          help="Lower values = more sensitive detection, higher values = more strict")
     img_size = st.selectbox("Image Size", [224, 320, 416, 512, 640], index=4)
     
     # Professional tracking settings
@@ -221,7 +222,8 @@ if detection_mode == "Image Upload":
                         else:
                             st.success(f"✅ Hand {i+1}: {hand['class']} (conf: {hand['confidence']:.3f})")
                 else:
-                    st.info("No hands detected")
+                    st.warning("No hands detected - try lowering the confidence threshold or check if the image contains visible hands")
+                    st.info("💡 Tips: Ensure good lighting, clear hand visibility, and try confidence threshold below 0.3")
                     
             else:  # Basic mode
                 model = load_basic_model(model_path)
